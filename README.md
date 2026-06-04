@@ -34,7 +34,7 @@ python -m pip install --upgrade pip setuptools wheel
 python -m pip install -r requirements.txt
 ```
 
-`requirements.txt` is pinned from the tested environment. It installs the CUDA 11.8 PyTorch wheels and the diffusion, metric, rendering, and data-processing packages used by this codebase. If `nvdiffrast` fails to build, first check that `git`, a C++ compiler, and a CUDA-compatible NVIDIA driver are available.
+`requirements.txt` pins the Python packages used by this release, including CUDA 11.8 PyTorch wheels and the diffusion, metric, rendering, and data-processing dependencies. If `nvdiffrast` fails to build, first check that `git`, a C++ compiler, and a CUDA-compatible NVIDIA driver are available.
 
 The code reads datasets from `cfg.workspace / data_root`. If `workspace` is not set, it defaults to the repository root:
 

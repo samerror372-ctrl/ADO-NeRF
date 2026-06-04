@@ -492,7 +492,7 @@ def parse_args():
                 "mvs", "mvs_only", "mono", "mono_only", "completed", "mvs_mono", "mvs_mono_completed",
             ],
             help="Depth condition: source_* modes keep geometry on source views; target modes are kept only for legacy checks.")
-    parser.add_argument("--limit", type=int, default=None, help="Only process the first N samples for smoke tests.")
+    parser.add_argument("--limit", type=int, default=None, help="Only process the first N samples for a quick check.")
     parser.add_argument("--steps", type=int, default=50, help="DDIM inference steps.")
     parser.add_argument("--guidance_scale", type=float, default=2.0)
     parser.add_argument("--seed", type=int, default=42)
