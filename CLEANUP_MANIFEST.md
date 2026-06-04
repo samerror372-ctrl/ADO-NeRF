@@ -6,7 +6,7 @@ This directory is a non-destructive clean copy prepared from the parent workspac
 
 - Training, evaluation, dataset, network, and utility source code.
 - ADO export bridge: `run_ado_export.py`.
-- Diffusion refinement entry points: `diffusion_nerf/refine_ado_fsd.py` and `diffusion_nerf/refine_ado_nofsd.py`.
+- Diffusion refinement entry points: `diffusion_nerf/refine_ado_scene_consistent.py` and `diffusion_nerf/refine_ado_frequency_blending.py`.
 - DTU split and source-view pairing metadata under `data/ado_metadata/`.
 - Project license, requirements, README, and Git ignore rules.
 

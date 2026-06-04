@@ -8,7 +8,8 @@ This repository contains a clean research-code release of ADO-NeRF: the renderer
 
 - Generalizable NeRF training and evaluation on DTU, NeRF Synthetic, and LLFF-style data.
 - Occlusion-aware target-view export for diffusion repair.
-- Two refinement entry points: direct ADO diffusion repair and FSD-enhanced repair.
+- Two refinement entry points: scene-consistent ADO diffusion repair and frequency-blending repair.
+- Optional MVSGaussian predicted-source bridge for cross-model diffusion repair studies.
 - Clean repository layout with generated data and checkpoints excluded by `.gitignore`.
 - Tested with Python 3.10, PyTorch 2.5.1, and CUDA 11.8 wheels.
 
@@ -351,26 +352,26 @@ For custom masks, edit `MASK_STRENGTH_PROFILES` in `run_ado_export.py`. In the r
 
 ## Diffusion Repair
 
-Run direct ADO diffusion repair:
+Run scene-consistent ADO diffusion repair:
 
 ```bash
 ADO_REFINE_INPUT_DIR=diffusion_input \
-ADO_REFINE_OUTPUT_DIR=diffusion_nerf/ado_result_nofsd \
-ADO_REFINE_DEBUG_DIR=diffusion_nerf/ado_debug_nofsd \
+ADO_REFINE_OUTPUT_DIR=diffusion_nerf/ado_result_scene \
+ADO_REFINE_DEBUG_DIR=diffusion_nerf/ado_debug_scene \
 ADO_REFINE_MAX_FILES=0 \
 ADO_DIFFUSION_STEPS=50 \
-python diffusion_nerf/refine_ado_nofsd.py
+python diffusion_nerf/refine_ado_scene_consistent.py
 ```
 
-Run FSD-enhanced ADO diffusion repair:
+Run frequency-blending ADO diffusion repair:
 
 ```bash
 ADO_REFINE_INPUT_DIR=diffusion_input \
-ADO_REFINE_OUTPUT_DIR=diffusion_nerf/ado_result_fsd \
-ADO_REFINE_DEBUG_DIR=diffusion_nerf/ado_debug_fsd \
+ADO_REFINE_OUTPUT_DIR=diffusion_nerf/ado_result_frequency \
+ADO_REFINE_DEBUG_DIR=diffusion_nerf/ado_debug_frequency \
 ADO_REFINE_MAX_FILES=0 \
 ADO_DIFFUSION_STEPS=50 \
-python diffusion_nerf/refine_ado_fsd.py
+python diffusion_nerf/refine_ado_frequency_blending.py
 ```
 
 Useful refinement environment variables:
@@ -386,6 +387,58 @@ ADO_REPAIR_MASK_THRESHOLD    Threshold for repair-mask metrics
 ADO_ENABLE_PASTE             Enable pixel-prior paste when set to 1
 ```
 
+## Cross-Model MVSGaussian Bridge
+
+This repository also includes an optional migration example for applying the same scene-consistent diffusion repair idea to MVSGaussian:
+
+```text
+optional_projects/mvsgaussian_predicted_source_bridge/
+```
+
+The bridge is intentionally based on predicted source-view MVS depths. It does not use raw or ground-truth source-view MVS depth maps as diffusion conditions. See `optional_projects/mvsgaussian_predicted_source_bridge/README.md` for copy commands and MVSGaussian-side usage.
+
+At a high level, copy the bridge files into an MVSGaussian checkout, export predicted-source diffusion tensors, then run the scene-consistent refinement script:
+
+```bash
+cd /path/to/MVSGaussian
+export workspace=$(pwd)
+
+MVSGS_DIFFUSION_OUTPUT_DIR=diffusion_nerf/mvsgs_predicted_source_inputs \
+python export_mvsgs_predicted_source_depth.py \
+  --type evaluate \
+  --cfg_file configs/mvsgs/dtu_pretrain.yaml \
+  exp_name <mvsgs_experiment_name> \
+  test.epoch <checkpoint_epoch>
+
+cd diffusion_nerf
+python refine_mvsgs_scene_consistent.py \
+  --input_dir mvsgs_predicted_source_inputs \
+  --experiment_root mvsgs_scene_consistent_results \
+  --depth_mode source \
+  --mask_profile orig
+```
+
+### Required Outputs for MVSGaussian-Style Migration
+
+The checked MVSGaussian network already provides the target-view fields used by the bridge:
+
+```text
+rgb_level{level}
+depth_mvs_level{level}
+std_level{level}
+```
+
+The bridge adds source-view predicted depth fields during export by running extra depth-only passes with each source camera as the target:
+
+```text
+src_mvs_depths_level{level}
+src_mvs_stds_level{level}        optional
+source_depth_origin
+uses_source_raw_depth=False
+```
+
+For another model in the same family, the export side should provide target rendered RGB, target MVS depth, source RGBs, camera intrinsics/extrinsics, a repair mask, and per-source predicted MVS depths. The per-source depth condition should come from the model's own prediction path, not from dataset raw source-depth supervision.
+
 ## Repository Layout
 
 ```text
@@ -396,6 +449,7 @@ networks/ado_nerf/          Renderer, depth modules, and bundle sampling
 train/                      Losses, optimizer, recorder, and train loop
 evaluators/                 Evaluation metrics and output writers
 diffusion_nerf/             Diffusion repair scripts and local modules
+optional_projects/          Optional cross-model migration examples
 run.py                      Dataset, network, and evaluation entry point
 train_net.py                Training entry point
 run_ado_export.py           Renderer-to-diffusion export bridge
@@ -420,6 +474,9 @@ diffusion_nerf/ado_result*/
 diffusion_nerf/ado_debug*/
 diffusion_nerf/logs/
 diffusion_nerf/run_logs/
+optional_projects/**/diffusion_nerf/check_points/
+optional_projects/**/diffusion_nerf/*inputs*/
+optional_projects/**/diffusion_nerf/*results*/
 ```
 
 ## References

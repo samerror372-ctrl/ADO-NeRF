@@ -300,18 +300,18 @@ def global_position_encoding_3d(config, depth, K, w2c, cond_num, nframe, device,
                 tar_idx_to_cond_idx = [int(x) for x in tar_idx_batch] 
      
                     
-                # 建立空白底：直接 zeros
+                # Initialize a blank pixel-prior canvas.
                 B = depth.shape[0] // nframe   # batch size
                 H, W = h, w
                 imgs_blank  = torch.zeros((B * nframe, 3, H, W), device=device, dtype=torch.float32)
                 alpha_blank = torch.zeros((B * nframe, 1, H, W), device=device, dtype=torch.float32)
                 
-                # ✅ 1) 預設：直接回傳純 warp
+                # Default path: return the projected warp directly.
                 coords = torch.cat([imgs, coord_mask], dim=1)
 
-                ENABLE_PASTE = False  # 或直接刪掉貼圖區塊
+                ENABLE_PASTE = False
 
-                # ✅ 2) 只有需要貼圖時，才計算對應表並覆寫 imgs/coord_mask
+                # Optional center-paste path.
                 if ENABLE_PASTE and (tar_idx_batch is not None):
                     tar_idx_to_cond_idx = [int(x) for x in tar_idx_batch]
 

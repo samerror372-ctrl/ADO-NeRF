@@ -32,6 +32,15 @@ diffusion_nerf/run_logs/
 ccm_vis/
 coords_pixel_png/
 
+# Optional bridge runtime outputs
+optional_projects/**/diffusion_nerf/check_points/
+optional_projects/**/diffusion_nerf/*inputs*/
+optional_projects/**/diffusion_nerf/*results*/
+optional_projects/**/diffusion_nerf/logs/
+optional_projects/**/*.pt
+optional_projects/**/*.png
+optional_projects/**/*.log
+
 # Model/checkpoint files
 *.pth
 *.pt

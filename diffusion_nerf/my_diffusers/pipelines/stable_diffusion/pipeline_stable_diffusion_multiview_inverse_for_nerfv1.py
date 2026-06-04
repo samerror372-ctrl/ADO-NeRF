@@ -896,7 +896,7 @@ class StableDiffusionMultiViewPipeline(
                         for _ in range(3):
                             latent_in_prev = torch.cat([latents] * 2) if self.do_classifier_free_guidance else latents
                             
-                            # 👑【修正 1】：使用当前时间步 t_tensor，而不是错位的 t_prev_tensor
+                            # Use the current timestep tensor for model input scaling.
                             latent_in_prev = scheduler.scale_model_input(latent_in_prev, t_tensor)
                             noise_pred_prev = self.unet(
                                 latent_in_prev, t_tensor, add_inputs=add_inputs,
@@ -915,7 +915,7 @@ class StableDiffusionMultiViewPipeline(
                             x_s_region = latents[:, tgt_idx]
                             eps_region = eps_full[:, tgt_idx, :x_s_region.shape[2]]
 
-                            # 👑【修正 2】：使用 alpha_bar_t 进行除法，匹配当前的噪声级别，防止梯度爆炸
+                            # Match the current noise level when reconstructing x0.
                             if pred_type == "epsilon":
                                 x0_region = (x_s_region - (1.0 - alpha_bar_t).sqrt() * eps_region) / alpha_bar_t.sqrt()
                             elif pred_type == "v_prediction":
