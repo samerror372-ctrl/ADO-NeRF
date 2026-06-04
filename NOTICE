@@ -1,0 +1,13 @@
+ADO-NeRF
+Copyright 2026 ADO-NeRF Project Team
+
+Unless otherwise noted, the original ADO-NeRF code in this repository is
+licensed under the Apache License, Version 2.0.
+
+This repository includes adapted components from Hugging Face Diffusers under
+diffusion_nerf/my_diffusers/. Those files retain their original copyright
+headers and are licensed under the Apache License, Version 2.0.
+
+Datasets, pretrained renderer checkpoints, scene-consistent diffusion weights,
+and Stable Diffusion weights are not included in this repository and are
+governed by their respective licenses and terms of use.

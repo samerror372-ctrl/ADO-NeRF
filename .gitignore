@@ -1,0 +1,44 @@
+# Python
+__pycache__/
+*.py[cod]
+*.so
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Local environments
+.env
+.venv/
+venv/
+env/
+
+# Datasets and local model assets
+dtu/
+nerf_synthetic/
+nerf_llff_data/
+diffusion_nerf/check_points/
+model_result/
+trained_model/
+
+# Runtime outputs
+record/
+result/
+diffusion_input/
+diffusion_nerf/ado_input*/
+diffusion_nerf/ado_result*/
+diffusion_nerf/ado_debug*/
+diffusion_nerf/logs/
+diffusion_nerf/run_logs/
+ccm_vis/
+coords_pixel_png/
+
+# Model/checkpoint files
+*.pth
+*.pt
+*.ckpt
+*.safetensors
+*.bin
+
+# Logs and OS files
+*.log
+.DS_Store
