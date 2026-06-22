@@ -110,7 +110,7 @@ class Dataset:
             tar_mask = cv2.resize(tar_mask, None, fx=render_scale, fy=render_scale, interpolation=cv2.INTER_NEAREST)
             tar_dpt = cv2.resize(tar_dpt, None, fx=render_scale, fy=render_scale, interpolation=cv2.INTER_NEAREST)
         
-        src_inps, src_exts, src_ixts, src_dpts, src_msks = self.read_src(scene_info, src_views)
+        src_inps, src_exts, src_ixts = self.read_src(scene_info, src_views)
 
         tar_gt_ms = {'rgb': [], 
                      'mask': [], 
@@ -127,9 +127,7 @@ class Dataset:
         
         src_views = {'rgb': src_inps, 
                      'extrinsics': src_exts, 
-                     'intrinsics': src_ixts,
-                     'depth': src_dpts,
-                     'mask': src_msks}
+                     'intrinsics': src_ixts}
         tar_views = {'extrinsics': tar_ext, 
                      'intrinsics': tar_ixt, 
                      'rgb': tar_img, 
@@ -145,28 +143,16 @@ class Dataset:
                 'render_scale': render_scale, 
                 'meta': meta}
 
-    def read_depth(self, scene_info, view):
-        dpt = data_utils.read_pfm(scene_info['dpt_paths'][view])[0].astype(np.float32)
-        dpt = cv2.resize(dpt, None, fx=0.5, fy=0.5, interpolation=cv2.INTER_NEAREST)
-        dpt = dpt[44:556, 80:720]
-        msk = (dpt > 0.).astype(np.uint8)
-        return dpt, msk
-
     def read_src(self, scene_info, src_views):
-        inps, exts, ixts, dpts, msks = [], [], [], [], []
+        inps, exts, ixts = [], [], []
         for src_view in src_views:
             inps.append(cv2.cvtColor(cv2.imread(scene_info['img_paths'][src_view], cv2.IMREAD_COLOR), cv2.COLOR_BGR2RGB).astype(np.float32) / 255.)
             exts.append(scene_info['exts'][src_view])
             ixts.append(scene_info['ixts'][src_view])
-            dpt, msk = self.read_depth(scene_info, src_view)
-            dpts.append(dpt)
-            msks.append(msk)
         return (
             np.stack(inps).transpose((0, 3, 1, 2)),
             np.stack(exts),
-            np.stack(ixts),
-            np.stack(dpts),
-            np.stack(msks))
+            np.stack(ixts))
 
     def __len__(self):
         return len(self.metas)

@@ -126,7 +126,7 @@ class Network(nn.Module):
         # =========================================================================
         src_mvs_depths = None
         
-        if epoch_ratio >= 0.05:
+        if not self.training or epoch_ratio >= 0.05:
             src_depths_list = []
             with torch.no_grad():
                 for v in range(num_views):

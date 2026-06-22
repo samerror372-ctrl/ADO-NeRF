@@ -59,7 +59,7 @@ dtu/
   Depths/scan1_train/depth_map_0000.pfm
 ```
 
-`Depths_raw/<scene>/`, `Depths/<scene>/`, `Depths_raw/<scene>_train/`, and `Depths/<scene>_train/` are all supported for depth maps.
+`Depths_raw/<scene>/`, `Depths/<scene>/`, `Depths_raw/<scene>_train/`, and `Depths/<scene>_train/` are all supported for target-view depth maps. These maps are used only for training supervision and valid-mask evaluation. Source-view geometry for diffusion refinement is predicted by the ADO/GBD MVS network and is never read from these files.
 
 Public data sources:
 
@@ -284,6 +284,15 @@ Each item is written as:
 diffusion_input/<scene>_view_<id>_ado_data.pt
 ```
 
+Every exported source view has its own MVS depth prediction from the same ADO/GBD network. The exporter reruns the depth network with each source camera as the reference and writes:
+
+```text
+source_mvs_depths
+source_geometry_source = model_predicted_src_mvs_depth
+```
+
+`source_depths` is retained only as an identical compatibility alias. Dataset/raw source depth and repeated target-depth fallbacks are not allowed. Evaluation mode always enables per-source depth prediction, independently of the training warm-up threshold.
+
 Useful export environment variables:
 
 ```text
@@ -373,6 +382,8 @@ ADO_REFINE_MAX_FILES=0 \
 ADO_DIFFUSION_STEPS=50 \
 python diffusion_nerf/refine_ado_frequency_blending.py
 ```
+
+Both refinement commands validate source-depth provenance. Legacy `*_ado_data.pt` files that contain only `source_depths`, or do not carry the required `source_geometry_source` tag, are rejected and must be regenerated with `run_ado_export.py`.
 
 Useful refinement environment variables:
 

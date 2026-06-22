@@ -123,13 +123,12 @@ class Network(nn.Module):
         mvs_depth = mvs_depths[-1]  
 
         # =========================================================================
-        # [核心机制] 动态预测源视角 (Source Views) 深度，基于 5% Epoch 阈值触发
+        # Predict source-view depth in evaluation; retain the warm-up guard in training.
         # =========================================================================
         src_mvs_depths = None
         src_mvs_depth_ranges = None
         
-        # 如果训练进度超过 5% (0.05)，MVS 网络已经具备初步形状感知能力，此时开启遮挡判定
-        if epoch_ratio >= 0.05:
+        if not self.training or epoch_ratio >= 0.05:
             src_depths_list = []
             src_depth_ranges_list = []
             # print(f"==== Current epoch_ratio: {epoch_ratio:.4f} ====")
@@ -215,7 +214,7 @@ class Network(nn.Module):
             
         # =========================================================================
         # 🚨 [关键修改点] 将 src_mvs_depths 打包进 ret 字典中，供外部 run.py 使用
-        # 注意：如果 epoch_ratio < 0.05，src_mvs_depths 可能为 None，需要外部判空
+        # During training warm-up this can be None; evaluation always predicts it.
         # =========================================================================
         ret = {'rgb': img, 
                'nerf_depth': nerf_depth, 

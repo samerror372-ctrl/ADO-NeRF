@@ -14,6 +14,7 @@ from networks import make_network
 from utils.data_utils import to_cuda
 from evaluators import make_evaluator
 from utils import net_utils
+from utils.predicted_source_depth import SOURCE_GEOMETRY_TAG, require_predicted_source_depths
 
 PROJECT_ROOT = os.path.dirname(os.path.abspath(__file__))
 DIFFUSION_ROOT = os.path.join(PROJECT_ROOT, "diffusion_nerf")
@@ -152,86 +153,6 @@ def _view_export_name(batch, batch_idx):
         return f"{scene}_view_{batch_idx:04d}"
 
 
-def _resize_source_maps(maps, size, mode='nearest'):
-    if maps is None:
-        return None
-    if maps.dim() == 5 and maps.shape[2] == 1:
-        maps = maps[:, :, 0]
-    B, V = maps.shape[:2]
-    if maps.shape[-2:] != size:
-        maps = F.interpolate(
-            maps.flatten(0, 1).unsqueeze(1).float(),
-            size=size,
-            mode=mode,
-            align_corners=False if mode in ['bilinear', 'bicubic'] else None
-        ).view(B, V, size[0], size[1])
-    return torch.nan_to_num(maps.float(), nan=0.0, posinf=0.0, neginf=0.0)
-
-
-def _source_anchor_depths(batch, src_size):
-    src_views = batch.get('src_views', {})
-    if 'depth' not in src_views:
-        return None
-    return _resize_source_maps(src_views['depth'], src_size, mode='nearest').clamp_min(0.0)
-
-
-def _source_anchor_masks(batch, src_size, src_depths=None):
-    src_views = batch.get('src_views', {})
-    if 'mask' in src_views:
-        src_masks = _resize_source_maps(src_views['mask'], src_size, mode='nearest')
-        src_masks = (src_masks > 0.5).float()
-    elif src_depths is not None:
-        src_masks = torch.ones_like(src_depths)
-    else:
-        return None
-    if src_depths is not None:
-        src_masks = ((src_masks > 0.5) & torch.isfinite(src_depths) & (src_depths > 1e-6)).float()
-    return src_masks
-
-
-def _resize_source_ranges(depth_ranges, size):
-    if depth_ranges is None:
-        return None
-    if depth_ranges.dim() != 5:
-        return None
-    B, V = depth_ranges.shape[:2]
-    if depth_ranges.shape[-2:] != size:
-        depth_ranges = F.interpolate(
-            depth_ranges.flatten(0, 1).float(),
-            size=size,
-            mode='nearest'
-        ).view(B, V, 2, size[0], size[1])
-    return torch.nan_to_num(depth_ranges.float(), nan=0.0, posinf=0.0, neginf=0.0).clamp_min(0.0)
-
-
-def _confidence_from_ranges(depth_ranges, ref_depths, valid_masks=None):
-    if ref_depths.dim() == 5 and ref_depths.shape[2] == 1:
-        ref_depths = ref_depths[:, :, 0]
-    if depth_ranges is None:
-        conf = (torch.isfinite(ref_depths) & (ref_depths > 1e-6)).float()
-    else:
-        width = torch.abs(depth_ranges[:, :, 1] - depth_ranges[:, :, 0])
-        rel_unc = width / ref_depths.abs().clamp_min(1e-6)
-        conf = torch.sigmoid((0.05 - rel_unc) / 0.02)
-        conf = conf * (torch.isfinite(ref_depths) & (ref_depths > 1e-6)).float()
-    if valid_masks is not None:
-        if valid_masks.dim() == 5 and valid_masks.shape[2] == 1:
-            valid_masks = valid_masks[:, :, 0]
-        conf = conf * (valid_masks > 0.5).float()
-    return conf.clamp(0.0, 1.0)
-
-
-def _target_depth(output, src_size):
-    depth = output.get('mvs_depth', output.get('nerf_depth'))
-    if depth is None:
-        return None
-    if depth.dim() == 4 and depth.shape[1] == 1:
-        depth = depth[:, 0]
-    if depth.shape[-2:] != src_size:
-        depth = F.interpolate(depth.unsqueeze(1), size=src_size, mode='nearest').squeeze(1)
-    return torch.nan_to_num(depth.float(), nan=0.0, posinf=0.0, neginf=0.0).clamp_min(0.0)
-
-
 def run_dataset():
     cfg.train.num_workers = 0
     data_loader = make_data_loader(cfg, is_train=False)
@@ -274,10 +195,11 @@ def compute_hybrid_soft_mask(batch, output):
     src_imgs = batch['src_views']['rgb']
     V = src_imgs.shape[1]
     H_src, W_src = src_imgs.shape[-2:]
-    src_anchor_depths = _source_anchor_depths(batch, (H_src, W_src))
-    src_mvs_depths = src_anchor_depths if src_anchor_depths is not None else output.get('src_mvs_depths', None)
-    if src_mvs_depths is not None and src_mvs_depths.shape[-2:] != (H_src, W_src):
-        src_mvs_depths = _resize_source_maps(src_mvs_depths, (H_src, W_src), mode='nearest')
+    src_mvs_depths = require_predicted_source_depths(
+        output,
+        (H_src, W_src),
+        expected_views=V,
+    )
     
     src_exts = batch['src_views']['extrinsics']
     src_ints = batch['src_views']['intrinsics']
@@ -543,15 +465,11 @@ def run_evaluate():
             tar_rgb_ado = (tar_pred_rgb_raw * 2.0 - 1.0).clamp(-1.0, 1.0).unsqueeze(0).half()
 
             H_src, W_src = src_rgbs_raw.shape[-2:]
-            src_anchor_depths = _source_anchor_depths(batch, (H_src, W_src))
-            if src_anchor_depths is not None:
-                source_depths_full = src_anchor_depths
-            else:
-                fallback_depth = F.interpolate(
-                    output['nerf_depth'].unsqueeze(1),
-                    size=(H_src, W_src),
-                    mode='nearest').squeeze(1)
-                source_depths_full = fallback_depth.unsqueeze(1).repeat(1, src_rgbs_ado.shape[0], 1, 1)
+            source_depths_full = require_predicted_source_depths(
+                output,
+                (H_src, W_src),
+                expected_views=src_rgbs_ado.shape[0],
+            )
             source_valid_masks_full = (torch.isfinite(source_depths_full) & (source_depths_full > 1e-6)).float()
             src_depths_ado = source_depths_full[0].unsqueeze(1).float()
             src_valid_masks_ado = source_valid_masks_full[0].unsqueeze(1).float()
@@ -598,6 +516,8 @@ def run_evaluate():
                 "source_rgbs": src_rgbs_ado.cpu(),
                 "pred_rgb": tar_rgb_ado.cpu(),
                 "source_depths": src_depths_ado.half().cpu(),
+                "source_mvs_depths": src_depths_ado.half().cpu(),
+                "source_geometry_source": SOURCE_GEOMETRY_TAG,
                 "blur_mask": blur_mask_ado.cpu(),
                 "mask_layer1_raw": mask_layer1_raw_ado.cpu(),
                 "mask_layer2_soft": mask_layer2_soft_ado.cpu(),

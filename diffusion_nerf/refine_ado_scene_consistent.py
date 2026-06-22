@@ -21,6 +21,7 @@ from ado_refine_utils import (
     save_refinement_visuals,
     write_refinement_reports,
 )
+from predicted_source_depth import require_saved_predicted_source_depths
 
 DIFFUSION_ROOT = os.path.dirname(os.path.abspath(__file__))
 PROJECT_ROOT = os.path.dirname(DIFFUSION_ROOT)
@@ -151,9 +152,9 @@ def main():
         pred_rgb = torch.nan_to_num(pred_rgb, nan=0.0).clamp(-1.0, 1.0)
 
         H, W = source_rgbs.shape[2], source_rgbs.shape[3]
-        source_depths = data["source_depths"].to(device, dtype=weight_dtype)
+        source_depths = require_saved_predicted_source_depths(data).to(device, dtype=weight_dtype)
         if source_depths.shape[-2:] != (H, W):
-            source_depths = F.interpolate(source_depths, size=(H, W), mode='bilinear', align_corners=False)
+            source_depths = F.interpolate(source_depths, size=(H, W), mode='nearest')
         source_depths = torch.nan_to_num(source_depths, nan=0.0)
 
         blur_mask = data["blur_mask"].to(device, dtype=weight_dtype)
